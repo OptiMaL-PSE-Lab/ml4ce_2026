@@ -1,22 +1,23 @@
 [project]
 name = "ML4CE_RL_CW_2026"
 version = "0.1.0"
-requires-python = ">=3.10"
+requires-python = ">=3.12,<3.13"
 
 dependencies = [
     "torch",
+    "numpy",  
     "gymnasium",
     "tqdm",
     "matplotlib",
-    "numpy",
     "pandas",
     "pvlib",
     "jupyterlab",
     "ipykernel",
     "ipywidgets",
     "notebook",
-    "gurobipy",
-    "pyomo"
+    "highspy",
+    "scipy",
+    "packaging",
 ]
 
 [project.optional-dependencies]
@@ -34,3 +35,15 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 include = ["course_package*"]
 namespaces = true
+
+# CPU-only torch on Linux and Windows (the default wheel pulls GBs of CUDA libraries).
+# macOS wheels on PyPI are already CPU-only.
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'win32' or sys_platform == 'linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

@@ -6,6 +6,9 @@ from time import time
 
 import numpy as np
 import torch
+from numpy.typing import NDArray
+from tqdm import tqdm
+
 from course_package import MARLEnv
 from course_package.utils.helpers import (
     BaseAlgorithmConfig,
@@ -16,18 +19,20 @@ from course_package.utils.helpers import (
     set_seed,
     setup_model_saving,
 )
-from tqdm import tqdm
 
 
 @dataclass
 class AlgorithmConfig(BaseAlgorithmConfig):
     """Hyperparameters for REINFORCE with a learned state-value baseline."""
 
+    init_std: float = 0.1
     entropy_weight: float = 0.01
     gradient_clip: float = 1.0
     lr_policy: float = 1e-3
     lr_value: float = 1e-3
-    train_batch_size: int = 1176
+    train_batch_size: int = 504
+    num_eval_episodes: int = 1
+    eval_seed_offset: int = 10_000  # fixed evaluation episodes: seed + offset (+ i)
     group_identifier: str = "REINFORCE"
 
 
@@ -47,10 +52,10 @@ class PolicyNetwork(torch.nn.Module):
         x = torch.relu(self.fc2(x))
         x = self.output(x)
         mean, log_std = torch.chunk(x, 2, dim=-1)
-        return mean, log_std
+        return torch.tanh(mean), log_std
 
     @torch.no_grad()
-    def act(self, local_obs: np.ndarray) -> np.ndarray:
+    def act(self, local_obs: NDArray) -> NDArray:
         """Deterministic (mean) action ``(action_dim,)`` for one agent's observation ``(obs_dim,)``."""
         mean, _ = self(torch.as_tensor(local_obs, dtype=torch.float32))
         return mean.numpy()
@@ -71,49 +76,62 @@ class ValueNetwork(torch.nn.Module):
         return self.fc3(x)
 
 
-def choose_action(
-    state: np.ndarray, policy_net: PolicyNetwork
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """
-    Sample actions from the diagonal Gaussian shared policy.
+class ReinforceAgent:
+    """Shared policy plus its value baseline, carried together between stages.
 
-    Returns
-    -------
-    tuple[Tensor, Tensor, Tensor]
-        Sampled actions ``(..., action_dim)``, log-probabilities ``(...)`` and entropies ``(...)``.
+    Only ``act`` (the policy's deterministic action) is used for evaluation; the
+    value network is kept so that the next stage can continue training it.
     """
-    state_t = torch.from_numpy(state).float()
-    mean, log_std = policy_net(state_t)
-    log_std = torch.clamp(log_std, min=-0.0)
+
+    def __init__(self, obs_dim: int, action_dim: int):
+        self.policy = PolicyNetwork(obs_dim, action_dim)
+        self.value = ValueNetwork(obs_dim)
+
+    def act(self, local_obs: NDArray) -> NDArray:
+        """Deterministic (mean) action of the policy for one agent's observation."""
+        return self.policy.act(local_obs)
+
+
+def action_distribution(
+    policy_net: PolicyNetwork, obs: torch.Tensor
+) -> torch.distributions.Normal:
+    """Diagonal Gaussian of the shared policy for observations ``(..., obs_dim)``."""
+    mean, log_std = policy_net(obs)
+    log_std = -3.0 + 3.0 * torch.sigmoid(log_std)
     std = torch.exp(log_std)
+    return torch.distributions.Normal(mean, std)
 
-    dist = torch.distributions.Normal(mean, std)
-    action = dist.sample()
-    logprob = dist.log_prob(action).sum(dim=-1)
-    entropy = dist.entropy().sum(dim=-1)
 
-    return action, logprob, entropy
+@torch.no_grad()
+def choose_action(state: NDArray, policy_net: PolicyNetwork) -> NDArray:
+    """Sample actions ``(..., action_dim)`` from the shared policy (no graph is kept)."""
+    dist = action_distribution(policy_net, torch.from_numpy(state).float())
+    return dist.sample().numpy()
 
 
 def train(
     env: MARLEnv,
     config: AlgorithmConfig,
     seed: int = 0,
-) -> tuple[PolicyNetwork, dict[str, str]]:
+    policy: ReinforceAgent | None = None,
+) -> tuple[ReinforceAgent, dict[str, str]]:
     """
     Train ONE shared policy (used by every agent) with REINFORCE + baseline.
     """
     set_seed(seed)
-    agent_policy = PolicyNetwork(
-        env.observation_space.shape[1], env.action_space.shape[1]
-    )
+    if policy is None:
+        agent = ReinforceAgent(
+            env.observation_space.shape[1], env.action_space.shape[1]
+        )
+    else:
+        agent = policy
+    agent_policy, value_net = agent.policy, agent.value
     pbar = tqdm(
         desc=f"Running {config.group_identifier} RL training loop",
         total=config.max_steps,
     )
-    save_folder = setup_model_saving(config.group_identifier)
+    save_folder = setup_model_saving(f"{config.group_identifier}_stage{config.stage}")
 
-    value_net = ValueNetwork(env.observation_space.shape[1])
     policy_opt = torch.optim.Adam(agent_policy.parameters(), lr=config.lr_policy)
     value_opt = torch.optim.Adam(value_net.parameters(), lr=config.lr_value)
 
@@ -126,6 +144,7 @@ def train(
     start_time = time()
     step_count = 0
     batch_idx = 0
+    episode_idx = 0
     eval_cost = env.episode_len * config.num_eval_episodes
 
     def budget_remaining() -> bool:
@@ -141,23 +160,25 @@ def train(
 
         batch_size = 0
         while batch_size < config.train_batch_size and budget_remaining():
-            obs, _ = env.reset(seed=seed + batch_idx)
+            obs, _ = env.reset(seed=seed + episode_idx)
             done = False
             episode_rewards = []
 
             while not done and budget_remaining():
-                actions, logprob, entropy = choose_action(obs, agent_policy)
+                dist = action_distribution(agent_policy, torch.from_numpy(obs).float())
+                actions = dist.sample().numpy()
+                logprob = dist.log_prob(torch.from_numpy(actions).float()).sum(dim=-1)
+                entropy = dist.entropy().sum(dim=-1)
                 value = value_net(torch.from_numpy(obs).float()).squeeze(-1)
 
-                logprobs.append(logprob)
-                entropies.append(entropy)
-                values.append(value)
-
-                obs, rewards, done, _, _ = env.step(actions.detach().numpy())
+                obs, rewards, done, _, _ = env.step(actions)
                 episode_rewards.append(np.asarray(rewards, dtype=np.float32))
 
                 batch_size += 1
                 step_count += 1
+                logprobs.append(logprob)
+                entropies.append(entropy)
+                values.append(value)
 
             rewards = np.stack(episode_rewards)  # (steps, num_agents)
             returns.append(
@@ -170,6 +191,7 @@ def train(
                 )
             )
             episode_returns.append(float(rewards.sum()))
+            episode_idx += 1
 
         returns = torch.as_tensor(np.concatenate(returns), dtype=torch.float32)
         returns = returns.flatten()
@@ -199,7 +221,7 @@ def train(
             env,
             agent_policy,
             num_episodes=config.num_eval_episodes,
-            seed=seed + 10_000 + batch_idx,
+            seed=seed + config.eval_seed_offset,
         ).mean(axis=0)
         eval_return = float(eval_returns.sum())
         train_return = float(np.mean(episode_returns))
@@ -226,4 +248,4 @@ def train(
     agent_policy.load_state_dict(best_state_dict)
     pbar.close()
     save_training_plots(save_folder, title=config.group_identifier)
-    return agent_policy, save_paths
+    return agent, save_paths

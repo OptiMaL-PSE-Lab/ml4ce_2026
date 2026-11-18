@@ -18,6 +18,10 @@ class SharedPolicy:
     It maps ONE agent's local observation to that agent's action. The same
     parameters are used for every agent: ``act`` is called once per agent, so
     agents behave differently only because their observations differ.
+
+    The policy object is the ONLY thing carried from one stage to the next: store in
+    it anything your algorithm needs later (e.g. a copy of earlier parameters). It
+    must be picklable and must not keep a reference to the environment.
     """
 
     def __init__(self, obs_dim: int, action_dim: int):
@@ -47,16 +51,23 @@ def train(
     env: MARLEnv,
     config: AlgorithmConfig,
     seed: int = 0,
+    policy: SharedPolicy | None = None,
 ) -> tuple[SharedPolicy, dict[str, str]]:
     """
-    Create and train the single policy shared by all agents.
+    Train the single policy shared by all agents on ONE stage of the curriculum.
 
-    `env` returns observations of shape (num_agents, num_features): row i is
-    the local observation of agent i. Apply the same policy to every row and
-    update its parameters with the experience of all agents.
+    `env` contains only the household of this stage. It returns observations of
+    shape (num_agents, num_features): row i is the local observation of agent i.
+    Apply the same policy to every row.
+
+    `policy` is the policy returned by the previous stage, or None at the first
+    stage (`config.stage == 0`), where you create it. Adapt it to the new household
+    without forgetting the previous ones, within `config.max_steps` environment
+    steps and `config.max_time` seconds.
     """
     set_seed(seed)
-    policy = SharedPolicy(env.observation_space.shape[1], env.action_space.shape[1])
+    if policy is None:
+        policy = SharedPolicy(env.observation_space.shape[1], env.action_space.shape[1])
 
     # YOUR CODE GOES HERE
 

@@ -1,23 +1,30 @@
 {
-    "data_dir": "data/training",
-    "start_date": "2023-01-01 00:00:00",
-    "end_date": "2025-08-31 23:00:00",
-    "episode_len": 168,
-    "weather_data": "weather.csv",
-    "pricing_data": "grid_cost_coefficient.csv",
-    "forecasting_data": "rnn_forecasts.npz",
-    "reward_analysis": "reward_stats.csv",
-    "grid_resistance": 0.084,
-    "grid_voltage": 415,
-    "distribution_charge": 0.01,
-    "battery_depreciation_cost": 0.0152,
-    "delta_temp": 2.0,
-    "reward_weights": {
-        "r_eco": 1.0,
-        "r_comfort": 1.0,
-        "r_battery": 1.0,
-        "r_smooth_thermal": 0.0,
-        "r_smooth_battery": 0.0
+    "root_dir": "data/training",
+    "scenarios": {
+        "start_date": "2023-01-01 00:00:00",
+        "end_date": "2025-12-12 11:00:00",
+        "episode_len": 168,
+        "local_tz": "Europe/London"
+    },
+    "data": {
+        "weather": "weather.csv",
+        "pricing": "grid_cost_coefficient.csv",
+        "forecasting": "forecasts.npz"
+    },
+    "dt": {
+        "control_interval_seconds": 3600.0,
+        "measure_interval_seconds": 1,
+        "time_scale": 1.0,
+        "hold_last_action": true
+    },
+    "cost": {
+        "k_battery_degradation": 0.0152,
+        "k_comfort": 1.0,
+        "delta_temp": 2.0,
+        "price_public_ev_charge": 0.8,
+        "price_saved_energy": 0.13,
+        "reward_scale_factor": 1.0,
+        "subtract_exogenous": true
     },
     "observations": {
         "hour_sin": {
@@ -26,240 +33,248 @@
         "hour_cos": {
             "active": true
         },
-        "month_sin": {
+        "is_weekend": {
             "active": true
         },
-        "month_cos": {
+        "p_imp": {
             "active": true
         },
-        "dow_sin": {
+        "p_exp": {
             "active": true
         },
-        "dow_cos": {
+        "p_min_12h": {
             "active": true
         },
-        "external_temp": {
+        "p_max_12h": {
             "active": true
         },
-        "external_temp_pred1": {
+        "p_trend_3h": {
             "active": true
         },
-        "external_temp_pred2": {
+        "net_exo_load": {
             "active": true
         },
-        "external_temp_pred3": {
-            "active": false
+        "net_exo_load_mean_5h": {
+            "active": true
+        },
+        "error": {
+            "active": true
+        },
+        "error_int": {
+            "active": true
+        },
+        "error_der": {
+            "active": true
+        },
+        "dText": {
+            "active": true
+        },
+        "dText_mean_6h": {
+            "active": true
         },
         "solar_ghi": {
+            "active": true
+        },
+        "solar_ghi_mean_6h": {
+            "active": true
+        },
+        "sp_step": {
+            "active": true
+        },
+        "t_sp_change": {
+            "active": true
+        },
+        "a_th_prev": {
             "active": false
         },
-        "indoor_temp": {
+        "ev_avail": {
             "active": true
         },
-        "indoor_temp_setpoint": {
+        "ev_soc_frac": {
             "active": true
         },
-        "setpoint_difference": {
+        "ev_soc_req_frac": {
             "active": true
         },
-        "hvac_mode": {
+        "ev_time_to_dep": {
             "active": true
         },
-        "grid_cost_coeff": {
+        "ev_charge_hours_left": {
             "active": true
         },
-        "grid_cost_coeff_pred1": {
+        "p_min_before_dep": {
             "active": true
         },
-        "grid_cost_coeff_pred2": {
+        "pv_installed_capacity": {
             "active": true
         },
-        "grid_cost_coeff_pred3": {
-            "active": false
-        },
-        "ev_soc": {
+        "ev_usable_capacity": {
             "active": true
         },
-        "pv_generation": {
+        "ev_b_in_max": {
             "active": true
         },
-        "domestic_load": {
+        "ev_b_out_max": {
             "active": true
         },
-        "domestic_load_pred1": {
+        "ev_rt_eff": {
             "active": true
         },
-        "domestic_load_pred2": {
+        "hp_rated_power": {
             "active": true
         },
-        "ev_availability": {
+        "hp_cop": {
             "active": true
         },
-        "ev_trip_demand": {
+        "building_thermal_capacitance": {
             "active": true
         },
-        "ev_time_to_arrival": {
-            "active": false
-        },
-        "ev_time_to_departure": {
+        "building_ua_coeff": {
             "active": true
         },
-        "ev_required_soc_departure": {
-            "active": true
-        },
-        "rated_power": {
-            "active": true
-        },
-        "cop": {
-            "active": true
-        },
-        "installed_capacity": {
-            "active": true
-        },
-        "battery_capacity": {
-            "active": true
-        },
-        "battery_soc_min": {
-            "active": true
-        },
-        "b_in_max": {
-            "active": true
-        },
-        "b_out_max": {
-            "active": true
-        },
-        "ch_efficiency": {
-            "active": true
-        },
-        "disch_efficiency": {
-            "active": true
-        },
-        "consumption": {
+        "building_solar_gain": {
             "active": true
         }
     },
-    "prosumer_feature_bounds": {
-        "rated_power": [0.0, 15.0],
-        "cop": [1.0, 6.0],
-        "installed_capacity": [0.0, 10.0],
-        "battery_capacity": [0.0, 100.0],
-        "battery_soc_min": [0.0, 10.0],
-        "b_in_max": [0.0, 22.0],
-        "b_out_max": [0.0, 22.0],
-        "ch_efficiency": [0.0, 1.0],
-        "disch_efficiency": [0.0, 1.0],
-        "consumption": [0.0, 40.0]
+    "feature_scales": {
+        "price_ref": 0.421,
+        "net_load_ref": 3.2,
+        "hours_ref": 36.0,
+        "setpoint_horizon": 36.0,
+        "temp_ref": 22.0,
+        "ghi_ref": 1000.0,
+        "clip": 5.0
     },
-    "agents": {
-        "agent_0": {
-            "data_file": "agent_0.csv",
-            "building_thermal_capacitance": 2.0,
-            "building_thermal_resistance": 10.0,
-            "building_solar_gain": 0.002,
-            "ev_battery": {
-                "ch_efficiency": 0.932,
-                "disch_efficiency": 0.932,
-                "b_in_max": 6.6,
-                "b_out_max": 10,
-                "battery_capacity": 40,
-                "battery_soc_min": 4,
-                "consumption": 20.6
-            },
-            "heat_pump": {
-                "rated_power": 5.0,
-                "cop": 3.0
-            },
-            "pv_system": {
-                "installed_capacity": 4.0
+    "prosumers": {
+        "house1": {
+            "data_file": "house1.csv",
+            "specs": {
+                "ev_ch_efficiency": 0.95,
+                "ev_disch_efficiency": 0.91,
+                "ev_b_in_max": 4.8,
+                "ev_b_out_max": 8.5,
+                "ev_battery_capacity": 69.4,
+                "ev_battery_soc_min_fraction": 0.16,
+                "ev_consumption": 18.3,
+                "building_thermal_capacitance": 2.0,
+                "building_thermal_resistance": 11.0,
+                "building_solar_gain": 0.002,
+                "hp_rated_power": 5.0,
+                "hp_cop": 3.5,
+                "pv_installed_capacity": 4.0
             }
         },
-        "agent_1": {
-            "data_file": "agent_1.csv",
-            "building_thermal_capacitance": 2.0,
-            "building_thermal_resistance": 10.0,
-            "building_solar_gain": 0.002,
-            "ev_battery": {
-                "ch_efficiency": 0.932,
-                "disch_efficiency": 0.932,
-                "b_in_max": 6.6,
-                "b_out_max": 10,
-                "battery_capacity": 40,
-                "battery_soc_min": 4,
-                "consumption": 21.5
-            },
-            "heat_pump": {
-                "rated_power": 6.0,
-                "cop": 3.0
-            },
-            "pv_system": {
-                "installed_capacity": 4.0
+        "house6": {
+            "data_file": "house6.csv",
+            "specs": {
+                "ev_ch_efficiency": 0.96,
+                "ev_disch_efficiency": 0.94,
+                "ev_b_in_max": 4.1,
+                "ev_b_out_max": 3.2,
+                "ev_battery_capacity": 52.4,
+                "ev_battery_soc_min_fraction": 0.15,
+                "ev_consumption": 18.2,
+                "building_thermal_capacitance": 1.55,
+                "building_thermal_resistance": 7.5,
+                "building_solar_gain": 0.0012,
+                "hp_rated_power": 5.9,
+                "hp_cop": 2.7,
+                "pv_installed_capacity": 0.0
             }
         },
-        "agent_2": {
-            "data_file": "agent_2.csv",
-            "building_thermal_capacitance": 2.0,
-            "building_thermal_resistance": 10.0,
-            "building_solar_gain": 0.002,
-            "ev_battery": {
-                "ch_efficiency": 0.932,
-                "disch_efficiency": 0.932,
-                "b_in_max": 6.6,
-                "b_out_max": 10,
-                "battery_capacity": 40,
-                "battery_soc_min": 4,
-                "consumption": 20.8
-            },
-            "heat_pump": {
-                "rated_power": 5.0,
-                "cop": 4.0
-            },
-            "pv_system": {
-                "installed_capacity": 5.0
+        "house7": {
+            "data_file": "house7.csv",
+            "specs": {
+                "ev_ch_efficiency": 0.94,
+                "ev_disch_efficiency": 0.9,
+                "ev_b_in_max": 4.9,
+                "ev_b_out_max": 5.8,
+                "ev_battery_capacity": 71.0,
+                "ev_battery_soc_min_fraction": 0.13,
+                "ev_consumption": 22.2,
+                "building_thermal_capacitance": 2.45,
+                "building_thermal_resistance": 15.0,
+                "building_solar_gain": 0.0028,
+                "hp_rated_power": 4.6,
+                "hp_cop": 4.5,
+                "pv_installed_capacity": 7.0
             }
         },
-        "agent_3": {
-            "data_file": "agent_3.csv",
-            "building_thermal_capacitance": 2.0,
-            "building_thermal_resistance": 10.0,
-            "building_solar_gain": 0.002,
-            "ev_battery": {
-                "ch_efficiency": 0.932,
-                "disch_efficiency": 0.932,
-                "b_in_max": 6.6,
-                "b_out_max": 10,
-                "battery_capacity": 35,
-                "battery_soc_min": 3.5,
-                "consumption": 20.2
-            },
-            "heat_pump": {
-                "rated_power": 7.0,
-                "cop": 3.0
-            },
-            "pv_system": {
-                "installed_capacity": 3.0
+        "house2": {
+            "data_file": "house2.csv",
+            "specs": {
+                "ev_ch_efficiency": 0.94,
+                "ev_disch_efficiency": 0.93,
+                "ev_b_in_max": 4.2,
+                "ev_b_out_max": 10.0,
+                "ev_battery_capacity": 42.5,
+                "ev_battery_soc_min_fraction": 0.18,
+                "ev_consumption": 22.2,
+                "building_thermal_capacitance": 1.6,
+                "building_thermal_resistance": 13.0,
+                "building_solar_gain": 0.001,
+                "hp_rated_power": 4.1,
+                "hp_cop": 4.2,
+                "pv_installed_capacity": 2.5
             }
         },
-        "agent_4": {
-            "data_file": "agent_4.csv",
-            "building_thermal_capacitance": 2.0,
-            "building_thermal_resistance": 10.0,
-            "building_solar_gain": 0.002,
-            "ev_battery": {
-                "ch_efficiency": 0.932,
-                "disch_efficiency": 0.932,
-                "b_in_max": 6.6,
-                "b_out_max": 10,
-                "battery_capacity": 39,
-                "battery_soc_min": 3.9,
-                "consumption": 20.4
-            },
-            "heat_pump": {
-                "rated_power": 4.5,
-                "cop": 3.0
-            },
-            "pv_system": {
-                "installed_capacity": 6.0
+        "house8": {
+            "data_file": "house8.csv",
+            "specs": {
+                "ev_ch_efficiency": 0.93,
+                "ev_disch_efficiency": 0.92,
+                "ev_b_in_max": 5.2,
+                "ev_b_out_max": 4.9,
+                "ev_battery_capacity": 79.7,
+                "ev_battery_soc_min_fraction": 0.14,
+                "ev_consumption": 17.4,
+                "building_thermal_capacitance": 2.4,
+                "building_thermal_resistance": 8.0,
+                "building_solar_gain": 0.0025,
+                "hp_rated_power": 6.5,
+                "hp_cop": 3.0,
+                "pv_installed_capacity": 6.0
             }
         }
+    },
+    "measurements_schema": {
+        "EVBattery": [
+            "ev_soc",
+            "ev_availability",
+            "ev_trip_demand",
+            "ev_time_to_departure",
+            "ev_required_soc_departure",
+            "applied_ev_charge",
+            "applied_ev_discharge"
+        ],
+        "Thermostat": [
+            "indoor_temp",
+            "indoor_temp_setpoint",
+            "hvac_mode",
+            "applied_heating_load",
+            "applied_cooling_load"
+        ],
+        "Clock": [
+            "hour",
+            "dayofweek",
+            "month"
+        ],
+        "EnergyMonitor": [
+            "import_cost",
+            "domestic_load",
+            "pv_generation"
+        ],
+        "WeatherStation": [
+            "external_temp",
+            "solar_ghi"
+        ]
+    },
+    "action_space_schema": {
+        "EVBattery": [
+            "action_ev"
+        ],
+        "Thermostat": [
+            "action_thermal"
+        ]
     }
 }

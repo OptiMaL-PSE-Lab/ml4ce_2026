@@ -1,5 +1,6 @@
 from .metrics import plot_learning_curves, plot_reward_distribution
 from .style import apply_publication_style
+from .transfer import plot_transfer_matrix
 from .trajectories import (
     plot_battery,
     plot_comfort,
@@ -17,4 +18,5 @@ __all__ = [
     "plot_normalized_actions_battery",
     "plot_normalized_actions_thermal",
     "plot_reward_distribution",
+    "plot_transfer_matrix",
 ]

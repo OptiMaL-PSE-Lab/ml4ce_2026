@@ -1,8 +1,11 @@
-# Docker-created student state
+# Student outputs and local environment
 outputs/
-work/
+.venv/
 
 # Python and notebook state
 **/__pycache__/
 *.py[cod]
 .ipynb_checkpoints/
+
+# Windows download markers (Alternate Data Stream copies)
+*:Zone.Identifier

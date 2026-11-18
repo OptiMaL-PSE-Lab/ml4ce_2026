@@ -3,6 +3,7 @@ from .helpers import (
     compute_returns,
     evaluate_expert,
     evaluate_marl_policy,
+    expert_actions,
     make_expert,
 )
 from .io import (
@@ -13,17 +14,40 @@ from .io import (
     setup_model_saving,
     validate_module,
 )
+from .transfer import (
+    MAX_POLICY_BYTES,
+    BudgetExceededError,
+    CurriculumResult,
+    ZeroPolicy,
+    carry_policy,
+    evaluate_expert_households,
+    evaluate_households,
+    make_stage_env,
+    run_curriculum,
+    split_validation,
+)
 
 __all__ = [
+    "MAX_POLICY_BYTES",
     "BaseAlgorithmConfig",
+    "BudgetExceededError",
     "CSVLogger",
+    "CurriculumResult",
+    "ZeroPolicy",
+    "carry_policy",
     "compute_returns",
     "evaluate_expert",
+    "evaluate_expert_households",
+    "evaluate_households",
     "evaluate_marl_policy",
     "export_submission",
+    "expert_actions",
     "make_expert",
+    "make_stage_env",
+    "run_curriculum",
     "save_training_plots",
     "set_seed",
     "setup_model_saving",
+    "split_validation",
     "validate_module",
 ]

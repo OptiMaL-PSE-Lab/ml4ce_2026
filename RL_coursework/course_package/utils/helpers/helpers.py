@@ -7,18 +7,23 @@ import numpy as np
 from numpy.typing import NDArray
 
 from course_package import Expert, MARLEnv
-from course_package.policies.expert import PIDParams, initialize_mpc_param
+from course_package.expert import ExpertConfig, build_experts
 
 
 @dataclass
 class BaseAlgorithmConfig:
-    """Base class for algorithm configuration."""
+    """Base class for algorithm configuration.
 
-    gamma: float = 0.99
-    max_steps: int = 50_000
-    max_time: float = 5.0 * 60.0
+    ``max_steps`` and ``max_time`` are the budget of ONE call to ``train``, i.e. of
+    one stage of the curriculum. ``stage`` (0, 1, ...) is set by ``run_curriculum``.
+    """
+
+    gamma: float = 0.95
+    max_steps: int = 10_000
+    max_time: float = 60.0
     num_eval_episodes: int = 3
     group_identifier: str = "GXXX"
+    stage: int = 0
 
 
 def compute_returns(rewards: NDArray, gamma: float = 1.0) -> NDArray:
@@ -77,22 +82,36 @@ def evaluate_marl_policy(
     return returns_array
 
 
-def make_expert(env: MARLEnv, gain_dir: str | Path | None = None) -> Expert:
-    """Create the model-based expert (battery MPC + thermal PID), one MPC per agent."""
-    mpc_params = [
-        initialize_mpc_param(env.env, agent_idx=i) for i in range(env.num_agents)
-    ]
-    return Expert(mpc_params, PIDParams(), gain_dir=gain_dir)
+def make_expert(env: MARLEnv, gain_dir: str | Path | None = None) -> list[Expert]:
+    """Create the model-based experts (battery MPC + thermal PID), one per household.
+
+    Parameters
+    ----------
+    env : MARLEnv
+        The environment the experts will control.
+    gain_dir : str | Path | None, optional
+        Folder with one ``<household_id>.npz`` of PID gains per household. Defaults
+        to ``pid_gains/`` inside the dataset folder of ``env``.
+    """
+    raw = env.unwrapped
+    gain_dir = Path(gain_dir) if gain_dir is not None else raw.root_dir / "pid_gains"
+    return build_experts(raw, ExpertConfig(pid_gain_path=gain_dir))
+
+
+def expert_actions(env: MARLEnv, experts: list[Expert]) -> NDArray:
+    """Return the joint ``(num_agents, 2)`` action of the experts at the current step."""
+    raw = env.unwrapped
+    return np.stack([expert.act(raw, agent_idx=i) for i, expert in enumerate(experts)])
 
 
 def evaluate_expert(
     env: MARLEnv,
-    expert: Expert,
+    experts: list[Expert],
     num_episodes: int = 10,
     seed: int = 1234,
 ) -> NDArray:
     """
-    Evaluate the expert controller on the same episodes as ``evaluate_marl_policy``.
+    Evaluate the experts on the same episodes as ``evaluate_marl_policy``.
 
     Returns
     -------
@@ -102,10 +121,11 @@ def evaluate_expert(
     returns_array = np.zeros((num_episodes, env.num_agents), dtype=np.float32)
     for i in range(num_episodes):
         env.reset(seed=seed + i)
-        expert.reset()
+        for expert in experts:
+            expert.reset()
         done = False
         while not done:
-            _, rewards, done, _, _ = env.step(expert(env))
+            _, rewards, done, _, _ = env.step(expert_actions(env, experts))
             returns_array[i, :] += rewards
     return returns_array
 
@@ -128,9 +148,9 @@ def _shared_policy_actions(env: MARLEnv, policy, obs: NDArray) -> NDArray:
     NDArray
         Clipped actions ``(num_agents, action_dim)``; row ``i`` is agent ``i``'s action.
     """
-    actions = np.stack(
-        [np.asarray(policy.act(local_obs), dtype=np.float32) for local_obs in obs]
-    )
+    actions = np.stack([
+        np.asarray(policy.act(local_obs), dtype=np.float32) for local_obs in obs
+    ])
     if actions.shape != env.action_space.shape:
         raise ValueError(
             f"policy.act must return one action of shape {env.action_space.shape[1:]} "

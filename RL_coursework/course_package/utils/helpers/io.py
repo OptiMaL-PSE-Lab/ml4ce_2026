@@ -74,8 +74,8 @@ def set_seed(seed: int):
 def outputs_root() -> Path:
     """Folder where trained policies, plots and submissions are written.
 
-    Defaults to ``./outputs``; the Docker image sets ``COURSE_OUTPUT_DIR`` to the
-    exposed outputs volume."""
+    Defaults to ``./outputs``; the grader sets ``COURSE_OUTPUT_DIR`` to a per-seed
+    results folder."""
     return Path(os.environ.get("COURSE_OUTPUT_DIR", "outputs"))
 
 
@@ -91,17 +91,20 @@ def setup_model_saving(algorithm: str) -> Path:
 
 
 def validate_module(module: ModuleType) -> None:
-    """Check that an algorithm module defines ``train(env, config, seed)`` and ``AlgorithmConfig``."""
+    """Check that an algorithm module defines ``AlgorithmConfig`` and
+    ``train(env, config, seed, policy=None)``."""
     module_name = module.__name__
     if not hasattr(module, "train"):
         raise AttributeError(f"{module_name} must define train()")
     if not hasattr(module, "AlgorithmConfig"):
         raise AttributeError(f"{module_name} must define AlgorithmConfig")
-    params = list(inspect.signature(module.train).parameters)
-    if params != ["env", "config", "seed"]:
+    params = inspect.signature(module.train).parameters
+    if list(params) != ["env", "config", "seed", "policy"] or (
+        params["policy"].default is not None
+    ):
         raise TypeError(
-            f"{module_name}.train must have the signature train(env, config, seed), "
-            f"got train({', '.join(params)})"
+            f"{module_name}.train must have the signature "
+            f"train(env, config, seed, policy=None), got train{inspect.signature(module.train)}"
         )
 
 

@@ -9,22 +9,31 @@ from .style import apply_publication_style
 apply_publication_style()
 
 if TYPE_CHECKING:
-    from course_package import EnergySystem
+    from course_package import DERMultiAgentEnv, MARLEnv
+
+    Env = DERMultiAgentEnv | MARLEnv
 
 
-def plot_battery(env: "EnergySystem", agent_idx: int = 0) -> Figure:
+def _episode(env: "Env") -> tuple["DERMultiAgentEnv", int, int, NDArray]:
+    """Return the raw environment, episode start, length and local timestamps."""
+    raw = env.unwrapped
+    start, T = raw.current_episode_start, raw.episode_len
+    # _local_time_index is aligned with the sliced data arrays (unlike raw.datetime,
+    # which covers the whole pricing file).
+    return raw, start, T, raw._local_time_index[start : start + T]
+
+
+def plot_battery(env: "Env", agent_idx: int = 0) -> Figure:
     """Plot battery state, trip demand, and net battery flow.
 
     Parameters
     ----------
-    env : EnergySystem
+    env : DERMultiAgentEnv | MARLEnv
         Environment with recorded rollout data.
     agent_idx : int, default=0
         agent index.
     """
-    start = env.current_episode_start
-    T = env.episode_len
-    t_datetime = env.datetime[start : start + T]
+    env, start, T, t_datetime = _episode(env)
 
     ev_soc = env.ev_soc[agent_idx, :T]
     ev_trip_demand = env.ev_trip_demand[agent_idx, start : start + T]
@@ -82,19 +91,17 @@ def plot_battery(env: "EnergySystem", agent_idx: int = 0) -> Figure:
     return fig
 
 
-def plot_comfort(env: "EnergySystem", agent_idx: int = 0) -> Figure:
+def plot_comfort(env: "Env", agent_idx: int = 0) -> Figure:
     """Plot indoor temperature, comfort band, and thermal load.
 
     Parameters
     ----------
-    env : EnergySystem
+    env : DERMultiAgentEnv | MARLEnv
         Environment with recorded rollout data.
     agent_idx : int, default=0
         agent index.
     """
-    start = env.current_episode_start
-    T = env.episode_len
-    t_datetime = env.datetime[start : start + T]
+    env, start, T, t_datetime = _episode(env)
 
     temp_in = env.indoor_temp[agent_idx, :T]
     temp_sp = env.indoor_temp_setpoint[agent_idx, start : start + T]
@@ -113,8 +120,8 @@ def plot_comfort(env: "EnergySystem", agent_idx: int = 0) -> Figure:
     )
     ax1.fill_between(
         t_datetime,
-        temp_sp - env.delta_temp,
-        temp_sp + env.delta_temp,
+        temp_sp - env.cost_param.delta_temp,
+        temp_sp + env.cost_param.delta_temp,
         alpha=0.1,
         label="Comfort interval",
         color="tab:red",
@@ -144,22 +151,20 @@ def plot_comfort(env: "EnergySystem", agent_idx: int = 0) -> Figure:
     return fig
 
 
-def plot_electricity_import(env: "EnergySystem", agent_idx: int = 0) -> Figure:
+def plot_electricity_import(env: "Env", agent_idx: int = 0) -> Figure:
     """Plot per-step grid import and electricity price.
 
     Parameters
     ----------
-    env : EnergySystem
+    env : DERMultiAgentEnv | MARLEnv
         Environment with recorded rollout data.
     agent_idx : int, default=0
         agent index.
     """
-    start = env.current_episode_start
-    T = env.episode_len
-    t_datetime = env.datetime[start : start + T]
+    env, start, T, t_datetime = _episode(env)
 
     net_grid = env.pros_import[agent_idx, :T]
-    price = env.grid_cost_coeff[start : start + T]
+    price = env.import_cost[start : start + T]
 
     fig, ax1 = plt.subplots(figsize=(12, 4))
     ax1.step(t_datetime, net_grid, where="post", label="Grid import", linewidth=2)
@@ -167,7 +172,7 @@ def plot_electricity_import(env: "EnergySystem", agent_idx: int = 0) -> Figure:
     ax1.set_ylabel("Energy flow")
     ax2 = ax1.twinx()
     ax2.plot(
-        t_datetime, price, color="tab:red", linestyle="--", label="Electricity price"
+        t_datetime, price, color="tab:red", linestyle="--", label="Import price"
     )
     ax2.set_ylabel("Price")
     ax2.tick_params(axis="y", labelcolor="tab:red")
@@ -183,22 +188,20 @@ def plot_electricity_import(env: "EnergySystem", agent_idx: int = 0) -> Figure:
 
 
 def plot_normalized_actions_battery(
-    env: "EnergySystem", actions_history: NDArray, agent_idx: int = 0
+    env: "Env", actions_history: NDArray, agent_idx: int = 0
 ) -> Figure:
     """Plot battery actions against net battery flow.
 
     Parameters
     ----------
-    env : EnergySystem
+    env : DERMultiAgentEnv | MARLEnv
         Environment with recorded rollout data.
     actions_history : NDArray
         Normalized action history.
     agent_idx : int, default=0
         agent index.
     """
-    start = env.current_episode_start
-    T = env.episode_len
-    t_datetime = env.datetime[start : start + T]
+    env, start, T, t_datetime = _episode(env)
 
     b_in = env.b_in[agent_idx, :T]
     b_out = env.b_out[agent_idx, :T]
@@ -239,22 +242,20 @@ def plot_normalized_actions_battery(
 
 
 def plot_normalized_actions_thermal(
-    env: "EnergySystem", actions_history: NDArray, agent_idx: int = 0
+    env: "Env", actions_history: NDArray, agent_idx: int = 0
 ) -> Figure:
     """Plot thermal actions against net thermal load.
 
     Parameters
     ----------
-    env : EnergySystem
+    env : DERMultiAgentEnv | MARLEnv
         Environment with recorded rollout data.
     actions_history : NDArray
         Normalized action history.
     agent_idx : int, default=0
         agent index.
     """
-    start = env.current_episode_start
-    T = env.episode_len
-    t_datetime = env.datetime[start : start + T]
+    env, start, T, t_datetime = _episode(env)
 
     heat = env.heating_load[agent_idx, :T]
     cool = env.cooling_load[agent_idx, :T]

@@ -97,39 +97,56 @@ def plot_learning_curves(
     return fig
 
 
-def plot_reward_distribution(rewards, labels=None) -> plt.Figure:
-    """
+def plot_reward_distribution(
+    rewards,
+    labels: list[str] | None = None,
+) -> plt.Figure:
+    """Violin plot of the episode returns of several methods on one axis.
+
+    Each violin is the kernel density of one method's returns, with its median
+    marked; the individual episodes are drawn on top as points.
+
     Arguments:
-        reward_arr : must be a [n_episodes, n_data_sets] array
+        rewards : [n_episodes] or [n_episodes, n_methods] array of episode returns.
+        labels : one name per method (column of ``rewards``).
     """
-    if isinstance(rewards, list) or rewards.ndim == 1:
-        fig, ax = plt.subplots(figsize=(8, 5))
-        ax.grid(False)
-        ax.hist(rewards, density=True, edgecolor="black", alpha=0.5)
-        ax.set_xlabel("Global episode return.")
-        ax.set_ylabel("Probability density")
-        plt.ticklabel_format(style="sci", axis="x", scilimits=(-4, 4))
-        if labels is not None:
-            ax.legend(labels)
+    rewards = np.asarray(rewards, dtype=float)
+    if rewards.ndim == 1:
+        rewards = rewards[:, None]
+    n_methods = rewards.shape[1]
+    if labels is not None and len(labels) != n_methods:
+        raise ValueError(
+            f"Got {len(labels)} labels for {n_methods} columns of rewards."
+        )
 
-    else:
-        fig, axs = plt.subplots(1, rewards.shape[1], figsize=(5 * rewards.shape[1], 5))
-        axs = np.atleast_1d(axs)
-        if np.std(rewards.mean(axis=0)) > 100000:
-            for i in range(rewards.shape[1]):
-                axs[i].hist(rewards[:, i], density=True, edgecolor="black", alpha=0.5)
-                if labels is not None:
-                    axs[i].legend([labels[i]])
-        else:
-            for i in range(rewards.shape[1]):
-                axs[i].hist(rewards[:, i], density=True, edgecolor="black", alpha=0.5)
-                if labels is not None:
-                    axs[i].set_title(labels[i])
-        for i in range(rewards.shape[1]):
-            axs[i].set_xlabel("Global episode return.")
-            axs[i].set_ylabel("Probability density")
-            axs[i].ticklabel_format(style="sci", axis="x", scilimits=(-4, 4))
-            axs[i].grid(False)
+    positions = np.arange(1, n_methods + 1)
+    colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    fig, ax = plt.subplots(figsize=(max(5, 1.8 * n_methods), 4))
 
+    parts = ax.violinplot(rewards, positions=positions, showmedians=True)
+    for i, body in enumerate(parts["bodies"]):
+        body.set_facecolor(colors[i % len(colors)])
+        body.set_edgecolor("black")
+        body.set_alpha(0.5)
+    for key in ("cmedians", "cmins", "cmaxes", "cbars"):
+        parts[key].set_color("black")
+        parts[key].set_linewidth(1.0)
+
+    for i in range(n_methods):
+        ax.scatter(
+            np.full(rewards.shape[0], positions[i]),
+            rewards[:, i],
+            s=12,
+            color="black",
+            alpha=0.6,
+            zorder=3,
+        )
+
+    ax.set_xticks(positions)
+    if labels is not None:
+        ax.set_xticklabels(labels)
+    ax.set_ylabel("Global episode return")
+    ax.ticklabel_format(style="sci", axis="y", scilimits=(-4, 4))
+    ax.grid(False)
     fig.tight_layout()
     return fig
